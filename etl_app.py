@@ -32,19 +32,27 @@ def convertir_columnas_a_indices(df, columnas):
 def cargar_datos(archivo):
     """Carga datos desde el archivo y realiza validaciones iniciales."""
     df = pd.read_excel(archivo)
+    df.columns = df.columns.str.strip()  # Eliminar espacios en los nombres de las columnas
+    st.write("Columnas disponibles en el archivo:", df.columns.tolist())
     return df
 
 def limpiar_datos(df):
     """Limpia y valida los datos en el DataFrame."""
-    df = df.dropna(subset=['Fecha', 'Representante', 'CódigoProducto', 'Unidades'])
+    columnas_requeridas = ['Fecha', 'Representante', 'CódigoProducto', 'Unidades']
+    
+    columnas_presentes = df.columns.tolist()
+    columnas_faltantes = [col for col in columnas_requeridas if col not in columnas_presentes]
+    
+    if columnas_faltantes:
+        st.error(f"Las siguientes columnas están faltando en el archivo: {', '.join(columnas_faltantes)}")
+        return df  # Salir de la función si faltan columnas
+    
+    df = df.dropna(subset=columnas_requeridas)
     df['Unidades'] = pd.to_numeric(df['Unidades'], errors='coerce')
     df = df.dropna(subset=['Unidades'])
     df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
     df = df.dropna(subset=['Fecha'])
     
-    # Validar columnas adicionales
-    if 'GéneroRepresentante' not in df.columns or 'CategoríaProducto' not in df.columns:
-        st.warning("Las columnas 'GéneroRepresentante' y 'CategoríaProducto' no están en el archivo.")
     return df
 
 def transformar_datos(df):
@@ -78,13 +86,12 @@ def generar_graficos(ventas_representante, ventas_producto, ventas_diarias, vent
         st.pyplot(plt.gcf())
         plt.clf()
 
-        # Gráfico de Ventas por Representante (Top 10)
-        st.write("### Top 10 Representantes por Ventas")
-        st.write("Este gráfico muestra los 10 representantes con mayor cantidad total de unidades vendidas. Permite identificar a los principales vendedores en términos de volumen de ventas.")
-        top_10_representantes = ventas_representante.sort_values(ascending=False).head(10)
+        # Gráfico de Ventas por Representante
+        st.write("### Ventas por Representante")
+        st.write("Este gráfico muestra el total de unidades vendidas por cada representante de ventas. Puedes ver quiénes son los principales vendedores y cómo se comparan entre sí.")
         plt.figure(figsize=(12, 6))
-        sns.barplot(x=top_10_representantes.index, y=top_10_representantes.values, palette='viridis')
-        plt.title('Top 10 Representantes por Ventas')
+        sns.barplot(x=ventas_representante.index, y=ventas_representante.values, palette='viridis')
+        plt.title('Total de Ventas por Representante')
         plt.xlabel('Representante')
         plt.ylabel('Unidades Vendidas')
         plt.xticks(rotation=45)
@@ -150,49 +157,7 @@ def analisis_adicional(df):
             plt.clf()
         else:
             st.write("No hay suficientes datos para realizar una tendencia de ventas.")
-        
-        # Análisis de Ventas por Género del Representante
-        if 'GéneroRepresentante' in df.columns:
-            st.write("#### Ventas por Género del Representante")
-            ventas_por_genero = df.groupby('GéneroRepresentante')['Unidades'].sum()
-            plt.figure(figsize=(12, 6))
-            sns.barplot(x=ventas_por_genero.index, y=ventas_por_genero.values, palette='coolwarm')
-            plt.title('Ventas por Género del Representante')
-            plt.xlabel('Género del Representante')
-            plt.ylabel('Unidades Vendidas')
-            plt.xticks(rotation=45)
-            plt.tight_layout()
-            st.pyplot(plt.gcf())
-            plt.clf()
-        
-        # Análisis de Ventas por Categoría de Producto
-        if 'CategoríaProducto' in df.columns:
-            st.write("#### Ventas por Categoría de Producto")
-            ventas_por_categoria = df.groupby('CategoríaProducto')['Unidades'].sum()
-            plt.figure(figsize=(12, 6))
-            sns.barplot(x=ventas_por_categoria.index, y=ventas_por_categoria.values, palette='pastel')
-            plt.title('Ventas por Categoría de Producto')
-            plt.xlabel('Categoría de Producto')
-            plt.ylabel('Unidades Vendidas')
-            plt.xticks(rotation=45)
-            plt.tight_layout()
-            st.pyplot(plt.gcf())
-            plt.clf()
-        
-        # Análisis de Ventas por Género y Categoría de Producto
-        if 'GéneroRepresentante' in df.columns and 'CategoríaProducto' in df.columns:
-            st.write("#### Ventas por Género del Representante y Categoría de Producto")
-            ventas_por_genero_categoria = df.groupby(['GéneroRepresentante', 'CategoríaProducto'])['Unidades'].sum().unstack()
-            plt.figure(figsize=(12, 6))
-            sns.heatmap(ventas_por_genero_categoria, annot=True, cmap='YlGnBu', fmt='g')
-            plt.title('Ventas por Género del Representante y Categoría de Producto')
-            plt.xlabel('Categoría de Producto')
-            plt.ylabel('Género del Representante')
-            plt.xticks(rotation=45)
-            plt.tight_layout()
-            st.pyplot(plt.gcf())
-            plt.clf()
-
+            
     except Exception as e:
         st.error(f"Error en el análisis adicional: {e}")
 
